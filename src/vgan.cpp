@@ -18,6 +18,9 @@
 #include "config/allocator_config.hpp"
 #include "io/register_libvg_io.hpp"
 
+#include "process_reads.h"
+#include "extract_reads.h"
+
 #define VERBOSE
 #define ADDDATA
 //#define DEBUGREADGRAPH
@@ -154,6 +157,22 @@ int main(int argc, char *argv[]) {
             return soibean_.run(argc, argv, cwdProg);
         
         }
+
+
+        // MADS code begins //
+
+        else if (string(argv[1]) == "nodewalk"){
+            if (argc < 3) {
+                cerr << "Usage: " << argv[0] << argv[1] << " <input_gam_file>" << endl;
+                return 1;
+            }
+
+            vector<ReadData> reads = processReads(argv[2]);
+            extractAndPrint(reads);
+            
+            return 0;
+                                                    }                                                
+
 
 
 
