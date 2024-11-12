@@ -45,7 +45,7 @@ VGAN_PREREQS := MCMC.o run_trailmix.o TrailMix.o soibean.o soibean_functions.o \
                 Euka.o gam2prof.o vgan.o Clade.o update_likelihood.o HaploCart.o \
                 get_posterior.o process_mapping.o fa2fq.o get_p_obs_base.o \
                 read_fasta.o map_giraffe.o rmdup.o load.o readPathHandleGraph.o \
-                NodeInfo.o AlignmentInfo.o ../lib/libgab/libgab.o \
+                NodeInfo.o AlignmentInfo.o ../lib/libgab/libgab.o process_reads.o extract_reads.o \
                 ../lib/libgab/gzstream/gzstream.o \
                 ${VGDIR}obj/subcommand/subcommand.o \
                 ${VGDIR}obj/subcommand/giraffe_main.o \
@@ -63,7 +63,7 @@ FLAGS_STATIC := ${SPIMAPDIR}src/treevis.o ${SPIMAPDIR}src/newick.o \
                 compute_init_vec.o TrailMix.o run_trailmix.o gam2prof.o map_giraffe_Euka.o damage.o Euka.o \
                 vgan.o Clade.o update_likelihood.o HaploCart.o  get_posterior.o \
                 process_mapping.o fa2fq.o get_p_obs_base.o read_fasta.o \
-                map_giraffe.o  rmdup.o load.o readPathHandleGraph.o NodeInfo.o \
+                map_giraffe.o  rmdup.o load.o readPathHandleGraph.o NodeInfo.o process_reads.o extract_reads.o\
                 AlignmentInfo.o ../lib/libgab/libgab.a \
                 ../lib/libgab/gzstream/gzstream.o \
                 ${VGDIR}obj/subcommand/subcommand.o \
@@ -115,7 +115,7 @@ FLAGS_DYNAMIC := ${SPIMAPDIR}src/treevis.o ${SPIMAPDIR}src/newick.o \
                  process_mapping.o fa2fq.o MCMC.o compute_init_vec.o \
                  gam2prof.o soibean.o soibean_functions.o get_p_obs_base.o \
                  read_fasta.o map_giraffe.o load.o readPathHandleGraph.o \
-                 NodeInfo.o AlignmentInfo.o ../lib/libgab/libgab.a \
+                 NodeInfo.o AlignmentInfo.o ../lib/libgab/libgab.a process_reads.o extract_reads.o\
                  ../lib/libgab/gzstream/gzstream.o \
                  ${VGDIR}obj/subcommand/subcommand.o \
                  ${VGDIR}obj/subcommand/giraffe_main.o \
@@ -190,45 +190,62 @@ libgabmade:
 	cd ../lib/libgab/ && ${MAKE} -j $(NPROCS) && ${MAKE} -j $(NPROCS) -C gzstream/
 	touch libgabmade
 
+# Build vg if the stamp file doesn't exist
 vgmade:
-	cd $(VGDIR) && ./source_me.sh
-	cd $(VGDIR)/deps/sparsehash && ./configure
-	$(MAKE) -C $(VGDIR) -j $(NPROCS) || $(MAKE) -C $(VGDIR) -j $(NPROCS)
-	touch vgmade
+	@echo "Building VG in $(VGDIR)"
+	@cd $(VGDIR) && ./source_me.sh
+	@cd $(VGDIR)/deps/sparsehash && ./configure
+	@$(MAKE) -C $(VGDIR) -j $(NPROCS) || $(MAKE) -C $(VGDIR) -j $(NPROCS)
+	@touch $@
 
 # Build rpvg if the stamp file doesn't exist
 rpvgmade: vgmade
-	cp $(RPVGDIR)../rpvg_src/*.cpp $(RPVGDIR)src
-	cp $(RPVGDIR)../rpvg_src/*.hpp $(RPVGDIR)src
-	mkdir -p $(RPVGDIR)build
-	(cd ../dep/rpvg/build && cmake .. && ${MAKE} -j $(NPROCS))
-	touch rpvgmade
+	@echo "Copying RPVG source files and building RPVG in $(RPVGDIR)"
+	@cp $(RPVGDIR)../rpvg_src/*.cpp $(RPVGDIR)src
+	@cp $(RPVGDIR)../rpvg_src/*.hpp $(RPVGDIR)src
+	@mkdir -p $(RPVGDIR)build
+	@(cd ../dep/rpvg/build && cmake .. && $(MAKE) -j $(NPROCS))
+	@touch $@
 
 # Build spimap if the stamp file doesn't exist
 spimapmade:
-	cd $(SPIMAPDIR) && make -j $(NPROCS)
-	touch spimapmade
+	@echo "Building Spimap in $(SPIMAPDIR)"
+	@cd $(SPIMAPDIR) && make -j $(NPROCS)
+	@touch $@
 
+# Build static version
 static: libgabmade rpvgmade spimapmade $(VGAN_PREREQS) vgmade
-	$(CXX) -o $(BIN_DIR)vgan $(FLAGS_STATIC)
+	@echo "Building static version of vgan"
+	@$(CXX) -o $(BIN_DIR)vgan $(FLAGS_STATIC)
 
+# Build dynamic version of vgan
 vgan: vgmade rpvgmade libgabmade spimapmade $(VGAN_PREREQS)
-	$(MAKE) autocomp
-	$(CXX) $(CLUSTER_FLAGS) -o $(BIN_DIR)vgan $(FLAGS_DYNAMIC) $(CLUSTER_LINKER_FLAGS)
+	@echo "Compiling dynamic version of vgan"
+	@$(MAKE) autocomp
+	@$(CXX) $(CLUSTER_FLAGS) -o $(BIN_DIR)$@ $(FLAGS_DYNAMIC) $(CLUSTER_LINKER_FLAGS)
 
+# Build test executable
 test: $(TEST_PREREQS) vgmade libgabmade rpvgmade spimapmade
-	$(MAKE) autocomp
-	$(CXX) -o $(BIN_DIR)test $(FLAGS_TEST) $(CLUSTER_LINKER_FLAGS)
-	rm -f ../test/output_files/trailmix/*.txt
-	rm -f ../test/output_files/trailmix/*.mcmc
-	rm -f ../test/output_files/trailmix/*.gam
-	rm -f ../test/output_files/haplocart/*.txt
-	rm -f ../test/output_files/soibean/*.txt
-	rm -f ../test/output_files/soibean/*.mcmc
-	rm -f ../test/output_files/euka/*.tsv
-	rm -f ../test/output_files/euka/*.prof
+	@echo "Compiling test executable"
+	@$(MAKE) autocomp
+	@$(CXX) -o $(BIN_DIR)$@ $(FLAGS_TEST) $(CLUSTER_LINKER_FLAGS)
+	@echo "Cleaning up old test output files"
+	@rm -f ../test/output_files/trailmix/*.txt
+	@rm -f ../test/output_files/trailmix/*.mcmc
+	@rm -f ../test/output_files/trailmix/*.gam
+	@rm -f ../test/output_files/haplocart/*.txt
+	@rm -f ../test/output_files/soibean/*.txt
+	@rm -f ../test/output_files/soibean/*.mcmc
+	@rm -f ../test/output_files/euka/*.tsv
+	@rm -f ../test/output_files/euka/*.prof
 
+# Clean target to remove generated files
 clean:
-	rm -f *.o
-	rm -f $(BIN_DIR)*
+	@echo "Cleaning up object files and binaries"
+	@rm -f *.o
+	@rm -f $(BIN_DIR)*
 
+# Rule to compile .cpp files into .o files
+%.o: %.cpp
+	@echo "Compiling $< into $@"
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
