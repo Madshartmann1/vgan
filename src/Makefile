@@ -218,6 +218,7 @@ static: libgabmade rpvgmade spimapmade $(VGAN_PREREQS) vgmade
 	@echo "Building static version of vgan"
 	@$(CXX) -o $(BIN_DIR)vgan $(FLAGS_STATIC)
 
+
 # Build dynamic version of vgan
 vgan: vgmade rpvgmade libgabmade spimapmade $(VGAN_PREREQS)
 	@echo "Compiling dynamic version of vgan"

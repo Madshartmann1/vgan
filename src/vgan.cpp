@@ -17,7 +17,6 @@
 #include "preflight.hpp"
 #include "config/allocator_config.hpp"
 #include "io/register_libvg_io.hpp"
-
 #include "process_reads.h"
 #include "extract_reads.h"
 
